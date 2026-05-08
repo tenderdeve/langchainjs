@@ -17,6 +17,20 @@ import { convertToGenerativeAITools } from "./common.js";
 import { GoogleGenerativeAIToolType } from "../types.js";
 import { removeAdditionalProperties } from "./zod_to_genai_parameters.js";
 
+const NATIVE_TOOL_KEYS = new Set([
+  "codeExecution",
+  "googleSearchRetrieval",
+  "googleSearch",
+  "functionDeclarations",
+]);
+
+function isNativeGoogleTool(
+  tool: GoogleGenerativeAIToolType
+): tool is GenerativeAITool {
+  if (typeof tool !== "object" || tool === null) return false;
+  return Object.keys(tool).some((key) => NATIVE_TOOL_KEYS.has(key));
+}
+
 export function convertToolsToGenAI(
   tools: GoogleGenerativeAIToolType[],
   extra?: {
@@ -41,7 +55,9 @@ function processTools(tools: GoogleGenerativeAIToolType[]): GenerativeAITool[] {
   const genAITools: GenerativeAITool[] = [];
 
   tools.forEach((tool) => {
-    if (isLangChainTool(tool)) {
+    if (isNativeGoogleTool(tool)) {
+      genAITools.push(tool);
+    } else if (isLangChainTool(tool)) {
       const [convertedTool] = convertToGenerativeAITools([
         tool as StructuredToolInterface,
       ]);

@@ -6,11 +6,19 @@ import {
 } from "@google/generative-ai";
 import { BindToolsInput } from "@langchain/core/language_models/chat_models";
 
+/**
+ * Native Google tool for Google Search grounding (newer API).
+ */
+export interface GoogleSearchTool {
+  googleSearch: Record<string, unknown>;
+}
+
 export type GoogleGenerativeAIToolType =
   | BindToolsInput
   | GoogleGenerativeAIFunctionDeclarationsTool
   | CodeExecutionTool
-  | GoogleSearchRetrievalTool;
+  | GoogleSearchRetrievalTool
+  | GoogleSearchTool;
 
 export type GoogleGenerativeAIThinkingConfig = {
   /** Indicates whether to include thoughts in the response. If true, thoughts are returned only when available. */
