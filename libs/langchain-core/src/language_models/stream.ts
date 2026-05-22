@@ -230,7 +230,19 @@ function parseToolArgs(value: unknown): Record<string, unknown> {
 function standardizeToolBlock(block: ContentBlock): ContentBlock {
   const record = block as Record<string, unknown>;
   if (block.type === "tool_call") return block;
+
+  // Some providers stream a tool call as a leading blank/whitespace text block
+  // that subsequently receives the tool-call fields (id/name/args) merged in,
+  // leaving a `text` block that secretly carries a tool call. Recover it so the
+  // assembled AIMessage exposes the tool call instead of dropping it. See #10937.
+  const isMergedToolCallText =
+    block.type === "text" &&
+    typeof record.name === "string" &&
+    (record.args !== undefined || record.input !== undefined) &&
+    (typeof record.text !== "string" || record.text.trim() === "");
+
   if (
+    !isMergedToolCallText &&
     block.type !== "tool_call_chunk" &&
     block.type !== "tool_use" &&
     block.type !== "input_json_delta"
@@ -242,8 +254,12 @@ function standardizeToolBlock(block: ContentBlock): ContentBlock {
   if (name == null) return block;
 
   const args = record.args ?? record.input;
+  // Drop the stray `text` field when recovering a tool call from a text block;
+  // a tool_call block should not carry residual text content.
+  const rest = { ...record };
+  delete rest.text;
   return {
-    ...record,
+    ...rest,
     type: "tool_call",
     name,
     args: parseToolArgs(args),

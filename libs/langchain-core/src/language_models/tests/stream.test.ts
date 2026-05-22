@@ -554,6 +554,54 @@ describe("ChatModelStream", () => {
       ]);
     });
 
+    test("recovers a tool call merged into a leading blank text block", async () => {
+      // Repro for #10937: the provider emits a blank text block, then merges the
+      // tool-call fields onto the same block index, so the finished block is a
+      // `text` block secretly carrying id/name/args. The assembled message must
+      // still expose the tool call.
+      const stream = new ChatModelStream(
+        iterEvents([
+          { event: "message-start", id: "msg_merged_tool" },
+          {
+            event: "content-block-start",
+            index: 0,
+            content: { type: "text", text: "" },
+          },
+          {
+            event: "content-block-delta",
+            index: 0,
+            delta: { type: "text-delta", text: "\n\n" },
+          },
+          {
+            event: "content-block-finish",
+            index: 0,
+            content: {
+              type: "text",
+              text: "\n\n",
+              id: "call_1",
+              name: "ls",
+              args: '{"path":"/"}',
+            } as unknown as ContentBlock,
+          },
+          { event: "message-finish", reason: "stop" },
+        ])
+      );
+
+      const message = await stream.output;
+
+      expect((message.content as Array<{ type: string }>)[0]?.type).toBe(
+        "tool_call"
+      );
+      expect(message.tool_calls).toEqual([
+        {
+          type: "tool_call",
+          id: "call_1",
+          name: "ls",
+          args: { path: "/" },
+        },
+      ]);
+    });
+
     test("assembles multimodal data chunks", async () => {
       const stream = new ChatModelStream(
         iterEvents([
